@@ -1,0 +1,18 @@
+{  
+  "name": "Clarté",  
+  "short_name": "Clarté",  
+  "description": "Un outil quotidien de réalignement mental",  
+  "start_url": ".",  
+  "display": "standalone",  
+  "background_color": "#1a1a1a",  
+  "theme_color": "#1a1a1a",  
+  "orientation": "portrait",  
+  "icons": [  
+    {  
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' fill='%231a1a1a'/><text x='256' y='340' font-size='300' fill='%23fff' text-anchor='middle' font-family='system-ui' font-weight='600'>C</text></svg>",  
+      "sizes": "512x512",  
+      "type": "image/svg+xml",  
+      "purpose": "any maskable"  
+    }  
+  ]  
+}
