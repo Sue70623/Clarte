@@ -1,0 +1,544 @@
+<!DOCTYPE html>  
+<html lang="fr">  
+<head>  
+    <meta charset="UTF-8">  
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">  
+    <meta name="theme-color" content="#1a1a1a">  
+    <meta name="description" content="Un outil quotidien de réalignement mental">  
+    <meta name="apple-mobile-web-app-capable" content="yes">  
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">  
+    <title>Clarté</title>  
+    <link rel="manifest" href="manifest.json">  
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231a1a1a'/><text x='50' y='65' font-size='60' fill='%23fff' text-anchor='middle' font-family='system-ui'>C</text></svg>">  
+    <style>  
+        * {  
+            margin: 0;  
+            padding: 0;  
+            box-sizing: border-box;  
+        }  
+  
+        :root {  
+            --bg: #fafaf9;  
+            --text: #1a1a1a;  
+            --text-light: #666;  
+            --border: #e5e5e5;  
+            --accent: #2563eb;  
+            --accent-hover: #1d4ed8;  
+            --success: #16a34a;  
+            --radius: 12px;  
+        }  
+  
+        body {  
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;  
+            background: var(--bg);  
+            color: var(--text);  
+            line-height: 1.6;  
+            -webkit-font-smoothing: antialiased;  
+            padding-bottom: 80px;  
+        }  
+  
+        .container {  
+            max-width: 600px;  
+            margin: 0 auto;  
+            padding: 0 20px;  
+        }  
+  
+        header {  
+            padding: 40px 0 20px;  
+            text-align: center;  
+            border-bottom: 1px solid var(--border);  
+            margin-bottom: 40px;  
+        }  
+  
+        h1 {  
+            font-size: 28px;  
+            font-weight: 600;  
+            margin-bottom: 8px;  
+            letter-spacing: -0.5px;  
+        }  
+  
+        .subtitle {  
+            color: var(--text-light);  
+            font-size: 15px;  
+        }  
+  
+        .stats {  
+            display: flex;  
+            gap: 12px;  
+            justify-content: center;  
+            margin-top: 16px;  
+        }  
+  
+        .stat {  
+            display: inline-flex;  
+            align-items: center;  
+            gap: 6px;  
+            background: white;  
+            padding: 8px 16px;  
+            border-radius: 20px;  
+            font-size: 14px;  
+            border: 1px solid var(--border);  
+        }  
+  
+        .stat-number {  
+            font-weight: 600;  
+            color: var(--accent);  
+        }  
+  
+        .stat.success .stat-number {  
+            color: var(--success);  
+        }  
+  
+        .step {  
+            background: white;  
+            border: 1px solid var(--border);  
+            border-radius: var(--radius);  
+            padding: 32px 24px;  
+            margin-bottom: 20px;  
+            opacity: 0;  
+            transform: translateY(10px);  
+            animation: fadeIn 0.4s ease forwards;  
+        }  
+  
+        @keyframes fadeIn {  
+            to {  
+                opacity: 1;  
+                transform: translateY(0);  
+            }  
+        }  
+  
+        .step-number {  
+            display: inline-block;  
+            width: 28px;  
+            height: 28px;  
+            background: var(--accent);  
+            color: white;  
+            border-radius: 50%;  
+            text-align: center;  
+            line-height: 28px;  
+            font-size: 13px;  
+            font-weight: 600;  
+            margin-bottom: 16px;  
+        }  
+  
+        .step.completed .step-number {  
+            background: var(--success);  
+        }  
+  
+        .step-title {  
+            font-size: 18px;  
+            font-weight: 600;  
+            margin-bottom: 8px;  
+        }  
+  
+        .step-question {  
+            color: var(--text-light);  
+            font-size: 15px;  
+            margin-bottom: 20px;  
+            font-style: italic;  
+        }  
+  
+        textarea {  
+            width: 100%;  
+            min-height: 100px;  
+            padding: 16px;  
+            border: 1px solid var(--border);  
+            border-radius: 8px;  
+            font-size: 16px;  
+            font-family: inherit;  
+            resize: vertical;  
+            transition: border-color 0.2s;  
+        }  
+  
+        textarea:focus {  
+            outline: none;  
+            border-color: var(--accent);  
+        }  
+  
+        .buttons {  
+            display: flex;  
+            gap: 12px;  
+            margin-top: 16px;  
+        }  
+  
+        button {  
+            flex: 1;  
+            padding: 14px 24px;  
+            border: 1px solid var(--border);  
+            border-radius: 8px;  
+            font-size: 15px;  
+            font-weight: 500;  
+            cursor: pointer;  
+            transition: all 0.2s;  
+            background: white;  
+            color: var(--text);  
+        }  
+  
+        button:hover {  
+            background: var(--bg);  
+        }  
+  
+        button.primary {  
+            background: var(--accent);  
+            color: white;  
+            border-color: var(--accent);  
+        }  
+  
+        button.primary:hover {  
+            background: var(--accent-hover);  
+            border-color: var(--accent-hover);  
+        }  
+  
+        button:disabled {  
+            opacity: 0.5;  
+            cursor: not-allowed;  
+        }  
+  
+        .completion {  
+            text-align: center;  
+            padding: 60px 20px;  
+        }  
+  
+        .completion-icon {  
+            font-size: 48px;  
+            margin-bottom: 20px;  
+        }  
+  
+        .completion h2 {  
+            font-size: 24px;  
+            margin-bottom: 12px;  
+        }  
+  
+        .completion p {  
+            color: var(--text-light);  
+            margin-bottom: 32px;  
+        }  
+  
+        .history, .insights {  
+            margin-top: 40px;  
+        }  
+  
+        .section-header {  
+            display: flex;  
+            justify-content: space-between;  
+            align-items: center;  
+            margin-bottom: 20px;  
+        }  
+  
+        .section-header h2 {  
+            font-size: 20px;  
+            font-weight: 600;  
+        }  
+  
+        .export-btn {  
+            padding: 8px 16px;  
+            font-size: 14px;  
+            background: white;  
+            border: 1px solid var(--border);  
+            border-radius: 6px;  
+            cursor: pointer;  
+            transition: all 0.2s;  
+        }  
+  
+        .export-btn:hover {  
+            background: var(--bg);  
+        }  
+  
+        .history-item {  
+            background: white;  
+            border: 1px solid var(--border);  
+            border-radius: var(--radius);  
+            padding: 20px;  
+            margin-bottom: 16px;  
+        }  
+  
+        .history-date {  
+            font-weight: 600;  
+            margin-bottom: 4px;  
+        }  
+  
+        .history-vision {  
+            color: var(--text-light);  
+            font-size: 14px;  
+            margin-bottom: 12px;  
+        }  
+  
+        .history-action {  
+            font-size: 14px;  
+            padding: 8px 12px;  
+            background: var(--bg);  
+            border-radius: 6px;  
+            display: inline-block;  
+        }  
+  
+        .insight-card {  
+            background: white;  
+            border: 1px solid var(--border);  
+            border-radius: var(--radius);  
+            padding: 24px;  
+            margin-bottom: 16px;  
+        }  
+  
+        .insight-title {  
+            font-weight: 600;  
+            font-size: 16px;  
+            margin-bottom: 12px;  
+            display: flex;  
+            align-items: center;  
+            gap: 8px;  
+        }  
+  
+        .insight-value {  
+            font-size: 32px;  
+            font-weight: 600;  
+            color: var(--accent);  
+            margin-bottom: 8px;  
+        }  
+  
+        .insight-description {  
+            color: var(--text-light);  
+            font-size: 14px;  
+            line-height: 1.5;  
+        }  
+  
+        .top-list {  
+            list-style: none;  
+            margin-top: 12px;  
+        }  
+  
+        .top-list li {  
+            padding: 8px 0;  
+            border-bottom: 1px solid var(--border);  
+            font-size: 14px;  
+        }  
+  
+        .top-list li:last-child {  
+            border-bottom: none;  
+        }  
+  
+        .top-list .count {  
+            float: right;  
+            color: var(--text-light);  
+            font-size: 13px;  
+        }  
+  
+        .days-grid {  
+            display: grid;  
+            grid-template-columns: repeat(7, 1fr);  
+            gap: 4px;  
+            margin-top: 12px;  
+        }  
+  
+        .day-cell {  
+            aspect-ratio: 1;  
+            border-radius: 4px;  
+            font-size: 11px;  
+            display: flex;  
+            align-items: center;  
+            justify-content: center;  
+            background: var(--bg);  
+            color: var(--text-light);  
+            font-weight: 500;  
+        }  
+  
+        .day-cell.active {  
+            background: var(--accent);  
+            color: white;  
+        }  
+  
+        .day-cell.committed {  
+            background: var(--success);  
+            color: white;  
+        }  
+  
+        .hidden {  
+            display: none;  
+        }  
+  
+        .nav-bottom {  
+            position: fixed;  
+            bottom: 0;  
+            left: 0;  
+            right: 0;  
+            background: white;  
+            border-top: 1px solid var(--border);  
+            padding: 16px 20px;  
+            display: grid;  
+            grid-template-columns: repeat(3, 1fr);  
+            gap: 12px;  
+            z-index: 100;  
+        }  
+  
+        .nav-btn {  
+            padding: 12px;  
+            text-align: center;  
+            border: 1px solid var(--border);  
+            border-radius: 8px;  
+            background: white;  
+            cursor: pointer;  
+            transition: all 0.2s;  
+            font-size: 14px;  
+        }  
+  
+        .nav-btn.active {  
+            background: var(--accent);  
+            color: white;  
+            border-color: var(--accent);  
+        }  
+  
+        .empty-state {  
+            text-align: center;  
+            padding: 40px 20px;  
+            color: var(--text-light);  
+        }  
+  
+        @media (max-width: 480px) {  
+            .step {  
+                padding: 24px 20px;  
+            }  
+  
+            h1 {  
+                font-size: 24px;  
+            }  
+  
+            .stats {  
+                flex-direction: column;  
+                align-items: center;  
+            }  
+        }  
+    </style>  
+</head>  
+<body>  
+    <div class="container">  
+        <header>  
+            <h1>Clarté</h1>  
+            <div class="subtitle">Votre pratique quotidienne de réalignement</div>  
+            <div class="stats">  
+                <div class="stat">  
+                    <span>📅</span>  
+                    <span class="stat-number" id="practiceCount">0</span>  
+                    <span>pratiques</span>  
+                </div>  
+                <div class="stat success">  
+                    <span>✓</span>  
+                    <span class="stat-number" id="committedCount">0</span>  
+                    <span>engagés</span>  
+                </div>  
+            </div>  
+        </header>  
+  
+        <div id="journeyView">  
+            <div class="step" data-step="1">  
+                <div class="step-number">1</div>  
+                <div class="step-title">Grâce</div>  
+                <div class="step-question">Qu'est-ce qui existe déjà dans ma vie aujourd'hui ?</div>  
+                <textarea id="step1" placeholder="Prenez un moment pour reconnaître ce qui est déjà présent..."></textarea>  
+            </div>  
+  
+            <div class="step hidden" data-step="2">  
+                <div class="step-number">2</div>  
+                <div class="step-title">Vision</div>  
+                <div class="step-question">Quelle vie suis-je en train de construire ?</div>  
+                <textarea id="step2" placeholder="Décrivez la direction dans laquelle vous avancez..."></textarea>  
+            </div>  
+  
+            <div class="step hidden" data-step="3">  
+                <div class="step-number">3</div>  
+                <div class="step-title">Obstacle</div>  
+                <div class="step-question">Qu'est-ce qui me bloque aujourd'hui ?</div>  
+                <textarea id="step3" placeholder="Nommez précisément ce qui vous freine..."></textarea>  
+            </div>  
+  
+            <div class="step hidden" data-step="4">  
+                <div class="step-number">4</div>  
+                <div class="step-title">Ressources</div>  
+                <div class="step-question">Qu'est-ce que j'ai déjà pour avancer ?</div>  
+                <textarea id="step4" placeholder="Identifiez vos capacités, connaissances, soutiens..."></textarea>  
+            </div>  
+  
+            <div class="step hidden" data-step="5">  
+                <div class="step-number">5</div>  
+                <div class="step-title">Micro-pas</div>  
+                <div class="step-question">Quel est le plus petit pas que je peux faire aujourd'hui ?</div>  
+                <textarea id="step5" placeholder="Une action si petite qu'elle est impossible à refuser..."></textarea>  
+            </div>  
+  
+            <div class="step hidden" data-step="6">  
+                <div class="step-number">6</div>  
+                <div class="step-title">Engagement</div>  
+                <div class="step-question">Est-ce que je fais ce pas aujourd'hui ?</div>  
+                <div class="buttons">  
+                    <button id="notToday">Pas aujourd'hui</button>  
+                    <button id="yesToday" class="primary">Oui, je m'engage</button>  
+                </div>  
+            </div>  
+  
+            <div class="completion hidden" id="completion">  
+                <div class="completion-icon">✓</div>  
+                <h2>Pratique complétée</h2>  
+                <p>Vous venez de clarifier votre direction. Maintenant, avancez.</p>  
+                <button class="primary" id="newDay">Nouvelle journée</button>  
+            </div>  
+        </div>  
+  
+        <div id="historyView" class="hidden">  
+            <div class="history">  
+                <div class="section-header">  
+                    <h2>Historique</h2>  
+                    <button class="export-btn" id="exportData">Exporter</button>  
+                </div>  
+                <div id="historyList"></div>  
+            </div>  
+        </div>  
+  
+        <div id="insightsView" class="hidden">  
+            <div class="insights">  
+                <h2 style="margin-bottom: 20px;">Vos Insights</h2>  
+                  
+                <div class="insight-card">  
+                    <div class="insight-title">📊 Constance</div>  
+                    <div class="insight-value" id="insightConstance">0/30</div>  
+                    <div class="insight-description" id="insightConstanceText">Commencez votre pratique pour voir votre progression</div>  
+                    <div class="days-grid" id="daysGrid"></div>  
+                </div>  
+  
+                <div class="insight-card">  
+                    <div class="insight-title">🎯 Vos visions récurrentes</div>  
+                    <div class="insight-description">Ce qui revient le plus dans ce que vous construisez</div>  
+                    <ul class="top-list" id="topVisions"></ul>  
+                </div>  
+  
+                <div class="insight-card">  
+                    <div class="insight-title">🚧 Obstacles identifiés</div>  
+                    <div class="insight-description">Les freins que vous nommez le plus souvent</div>  
+                    <ul class="top-list" id="topObstacles"></ul>  
+                </div>  
+  
+                <div class="insight-card">  
+                    <div class="insight-title">⚡ Vos micro-pas</div>  
+                    <div class="insight-description">Les actions que vous prenez le plus</div>  
+                    <ul class="top-list" id="topActions"></ul>  
+                </div>  
+  
+                <div class="insight-card">  
+                    <div class="insight-title">📅 Vos jours de puissance</div>  
+                    <div class="insight-description" id="powerDaysText">Pas encore assez de données</div>  
+                </div>  
+  
+                <div class="insight-card">  
+                    <div class="insight-title">📈 Évolution</div>  
+                    <div class="insight-description" id="evolutionText">Continuez votre pratique pour voir votre progression</div>  
+                </div>  
+            </div>  
+        </div>  
+    </div>  
+  
+    <div class="nav-bottom">  
+        <div class="nav-btn active" id="navJourney">Aujourd'hui</div>  
+        <div class="nav-btn" id="navHistory">Historique</div>  
+        <div class="nav-btn" id="navInsights">Insights</div>  
+    </div>  
+  
+    <script src="app.js"></script>  
+</body>  
+</html>
