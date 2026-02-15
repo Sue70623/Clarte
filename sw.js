@@ -1,5 +1,5 @@
 // sw.js - V2.0  
-const CACHE_VERSION = 'clarte-v2.0';  
+const CACHE_VERSION = 'clarte-v2.0.1';  
 const CACHE_FILES = [  
   './',  
   './index.html',  
