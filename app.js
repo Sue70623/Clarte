@@ -1257,11 +1257,11 @@ const app = {
     },
 
     resetAllData() {
-        // Remove all journey entries
+        // Remove all journey entries and weekly surveys
         const keysToRemove = [];
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
-            if (key.startsWith('journey_')) {
+            if (key.startsWith('journey_') || key.startsWith('weekly_survey_')) {
                 keysToRemove.push(key);
             }
         }
@@ -1270,6 +1270,8 @@ const app = {
         
         // Reset current state
         this.todayData = {};
+        this.surveyStep = 1;
+        this.surveyAnswers = {};
         this.resetForNewDay();
         this.updateStats();
         
@@ -1277,19 +1279,19 @@ const app = {
     },
 
     showModal(title, text, confirmCallback, confirmText = 'Confirmer', cancelCallback = null, cancelText = 'Annuler') {
-        document.getElementById('modalTitle').textContent = title;
-        document.getElementById('modalText').textContent = text;
-        document.getElementById('modalConfirm').textContent = confirmText;
-        document.getElementById('modalCancel').textContent = cancelText;
+        document.getElementById('modalTitle')?.textContent = title;
+        document.getElementById('modalText')?.textContent = text;
+        document.getElementById('modalConfirm')?.textContent = confirmText;
+        document.getElementById('modalCancel')?.textContent = cancelText;
         
         this.confirmCallback = confirmCallback;
         this.cancelCallback = cancelCallback;
         
-        document.getElementById('confirmModal').classList.add('active');
+        document.getElementById('confirmModal')?.classList.add('active');
     },
 
     hideModal() {
-        document.getElementById('confirmModal').classList.remove('active');
+        document.getElementById('confirmModal')?.classList.remove('active');
         this.confirmCallback = null;
         this.cancelCallback = null;
     },
