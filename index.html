@@ -580,6 +580,26 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        .manual-survey-section {
+            text-align: center;
+            margin-bottom: 24px;
+            padding: 16px;
+            background: var(--bg);
+            border-radius: 12px;
+        }
+
+        .manual-survey-btn {
+            margin-bottom: 8px;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        .manual-survey-hint {
+            font-size: 13px;
+            color: var(--text-light);
+            margin: 0;
+        }
   
         .modal {  
             display: none;  
@@ -748,6 +768,13 @@
         <div id="insightsView" class="hidden">  
             <div class="insights">  
                 <h2 style="margin-bottom: 20px;">Vos Insights</h2>  
+                
+                <div class="manual-survey-section">
+                    <button id="manualSurveyBtn" class="primary manual-survey-btn">
+                        📝 Faire mon bilan maintenant
+                    </button>
+                    <p class="manual-survey-hint">Tu peux faire un bilan à tout moment pour réfléchir à ta semaine</p>
+                </div>
                 
                 <div class="insight-card" id="weeklyBilan" style="display:none;">
                     <div class="insight-title">📊 Bilan de ta semaine</div>

@@ -7,6 +7,7 @@ const app = {
     typingTimer: null,
     surveyStep: 1,
     surveyAnswers: {},
+    isManualSurvey: false,
     surveyQuestions: [
         {
             id: 'q1_week_feeling',
@@ -230,6 +231,9 @@ const app = {
         document.getElementById('importFile')?.addEventListener('change', (e) => this.importData(e));
         document.getElementById('resetDataBtn')?.addEventListener('click', () => this.confirmReset());
 
+        // Manual survey button
+        document.getElementById('manualSurveyBtn')?.addEventListener('click', () => this.startManualSurvey());
+
         // Modal
         document.getElementById('modalCancel')?.addEventListener('click', () => {
             if (this.cancelCallback) {
@@ -352,7 +356,7 @@ const app = {
     surveyNext() {
         if (this.surveyStep >= 7) {
             // Dernière question - terminer
-            this.completeSurvey();
+            this.completeSurvey(this.isManualSurvey || false);
             return;
         }
         
@@ -369,7 +373,7 @@ const app = {
 
     surveySkip() {
         if (this.surveyStep >= 7) {
-            this.completeSurvey();
+            this.completeSurvey(this.isManualSurvey || false);
         } else {
             this.surveyNext();
         }
@@ -377,7 +381,8 @@ const app = {
 
     updateSurveyDisplay() {
         // Update progress
-        document.getElementById('currentQuestion')?.textContent = this.surveyStep;
+        const currentQ = document.getElementById('currentQuestion');
+        if (currentQ) currentQ.textContent = this.surveyStep;
         
         // Show current question
         document.querySelectorAll('.survey-question').forEach((q, i) => {
@@ -398,7 +403,7 @@ const app = {
         if (skipBtn) skipBtn.textContent = this.surveyStep === 7 ? 'Terminer sans répondre' : 'Passer';
     },
 
-    completeSurvey() {
+    completeSurvey(isManual = false) {
         const today = this.getToday();
         const weekNumber = this.getWeekNumber(new Date());
         const weekStart = this.getWeekStart(new Date());
@@ -406,15 +411,22 @@ const app = {
         const survey = {
             weekStart: weekStart,
             weekNumber: weekNumber,
+            isManual: isManual,
             responses: this.surveyAnswers,
             completedAt: new Date().toISOString()
         };
         
-        localStorage.setItem(`weekly_survey_${weekNumber}`, JSON.stringify(survey));
+        // Clé différente si manuel pour ne pas écraser le bilan auto
+        const key = isManual 
+            ? `weekly_survey_manual_${new Date().getTime()}`
+            : `weekly_survey_${weekNumber}`;
+        
+        localStorage.setItem(key, JSON.stringify(survey));
         
         // Reset survey
         this.surveyStep = 1;
         this.surveyAnswers = {};
+        this.isManualSurvey = false;
         
         // Go to insights
         this.showView('insights');
@@ -436,6 +448,17 @@ const app = {
         return this.formatDate(d);
     },
 
+    startManualSurvey() {
+        // Reset survey state
+        this.surveyStep = 1;
+        this.surveyAnswers = {};
+        this.isManualSurvey = true;
+        
+        // Render and show survey
+        this.renderSurvey();
+        this.showView('survey');
+    },
+
     checkForSurvey() {
         const entries = this.getAllEntries();
         const uniqueDays = [...new Set(entries.map(e => e.date))];
@@ -451,6 +474,7 @@ const app = {
         if (existing) return false;
         
         // Afficher le questionnaire
+        this.isManualSurvey = false;
         this.renderSurvey();
         this.showView('survey');
         return true;
@@ -849,6 +873,59 @@ const app = {
         `).join('');
     },
 
+    formatSurveyResponses(responses) {
+        if (!responses) return '';
+        let html = '';
+        
+        // Q1 - Humeur de la semaine
+        if (responses.q1_week_feeling) {
+            const weekEmojiMap = {'-2': '😣', '-1': '😕', '0': '😐', '1': '🙂', '2': '😄'};
+            const emoji = weekEmojiMap[responses.q1_week_feeling] || responses.q1_week_feeling;
+            html += `• Humeur : ${emoji}<br>`;
+        }
+        
+        // Q2 - Énergie
+        if (responses.q2_energy) {
+            const energyLevel = parseInt(responses.q2_energy) || 0;
+            const energyEmoji = '🔋'.repeat(Math.max(1, Math.min(5, energyLevel)));
+            html += `• Énergie : ${energyEmoji}<br>`;
+        }
+        
+        // Q3 - Clarté mentale
+        if (responses.q3_clarity) {
+            const clarityEmoji = {1: '🌫️', 2: '⛅', 3: '☀️', 4: '✨'};
+            html += `• Clarté : ${clarityEmoji[responses.q3_clarity] || responses.q3_clarity}<br>`;
+        }
+        
+        // Q4 - Changement perçu
+        if (responses.q4_change) {
+            const changeLabel = {
+                'positive': 'Oui, positif',
+                'negative': 'Oui, négatif',
+                'stable': 'Non, stable',
+                'unknown': 'Je ne sais pas'
+            };
+            html += `• Changement : ${changeLabel[responses.q4_change] || responses.q4_change}<br>`;
+        }
+        
+        // Q5 - Ce qui a aidé
+        if (responses.q5_helped) {
+            html += `• Aidé par : "${responses.q5_helped}"<br>`;
+        }
+        
+        // Q6 - Ce qui a freiné
+        if (responses.q6_blocked) {
+            html += `• Freiné par : "${responses.q6_blocked}"<br>`;
+        }
+        
+        // Q7 - En un mot
+        if (responses.q7_word) {
+            html += `• En un mot : "${responses.q7_word}"`;
+        }
+        
+        return html;
+    },
+
     renderInsights() {
         const entries = this.getAllEntries();
         
@@ -934,6 +1011,57 @@ const app = {
                 }
                 
                 document.getElementById('bilanContent').innerHTML = bilanHtml;
+                
+                // Afficher les bilans manuels
+                let manualBilansHtml = '';
+                const manualSurveys = [];
+                
+                // Récupérer tous les bilans manuels
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith('weekly_survey_manual_')) {
+                        try {
+                            const data = JSON.parse(localStorage.getItem(key));
+                            if (data && data.completedAt) {
+                                manualSurveys.push({
+                                    key: key,
+                                    timestamp: parseInt(key.replace('weekly_survey_manual_', '')),
+                                    data: data
+                                });
+                            }
+                        } catch (e) {
+                            console.error('Erreur parsing bilan manuel:', e);
+                        }
+                    }
+                }
+                
+                // Trier par date décroissante (plus récents en premier)
+                manualSurveys.sort((a, b) => b.timestamp - a.timestamp);
+                
+                // Afficher les 3 plus récents
+                if (manualSurveys.length > 0) {
+                    const bilansToShow = manualSurveys.slice(0, 3);
+                    manualBilansHtml = '<h3 style="margin-top: 20px;">📋 Bilans manuels récents</h3>';
+                    bilansToShow.forEach(bilan => {
+                        const date = new Date(bilan.timestamp);
+                        const dateStr = date.toLocaleDateString('fr-FR', {
+                            weekday: 'short',
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                        const responsesHtml = this.formatSurveyResponses(bilan.data.responses || {});
+                        manualBilansHtml += `
+                            <div class="insight-card" style="margin-bottom: 15px;">
+                                <div style="font-size: 12px; color: #999; margin-bottom: 10px;">📅 ${dateStr}</div>
+                                <div style="font-size: 13px; line-height: 1.6;">${responsesHtml}</div>
+                            </div>
+                        `;
+                    });
+                    document.getElementById('bilanContent').innerHTML += manualBilansHtml;
+                }
             }
         } else if (bilanCard) {
             bilanCard.style.display = 'none';
@@ -1285,10 +1413,14 @@ const app = {
     },
 
     showModal(title, text, confirmCallback, confirmText = 'Confirmer', cancelCallback = null, cancelText = 'Annuler') {
-        document.getElementById('modalTitle')?.textContent = title;
-        document.getElementById('modalText')?.textContent = text;
-        document.getElementById('modalConfirm')?.textContent = confirmText;
-        document.getElementById('modalCancel')?.textContent = cancelText;
+        const modalTitle = document.getElementById('modalTitle');
+        const modalText = document.getElementById('modalText');
+        const modalConfirm = document.getElementById('modalConfirm');
+        const modalCancel = document.getElementById('modalCancel');
+        if (modalTitle) modalTitle.textContent = title;
+        if (modalText) modalText.textContent = text;
+        if (modalConfirm) modalConfirm.textContent = confirmText;
+        if (modalCancel) modalCancel.textContent = cancelText;
         
         this.confirmCallback = confirmCallback;
         this.cancelCallback = cancelCallback;
