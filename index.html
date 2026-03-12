@@ -491,6 +491,95 @@
         .skip-btn:hover {
             background: var(--bg);
         }
+
+        .survey-progress {
+            text-align: center;
+            font-size: 14px;
+            color: var(--text-light);
+            margin-bottom: 24px;
+            padding: 8px;
+            background: var(--bg);
+            border-radius: 8px;
+        }
+
+        .survey-container {
+            min-height: 300px;
+            margin-bottom: 24px;
+        }
+
+        .survey-question {
+            display: none;
+        }
+
+        .survey-question.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        .question-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .survey-options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .survey-option {
+            padding: 16px;
+            background: white;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .survey-option:hover {
+            border-color: var(--accent);
+            background: var(--bg);
+        }
+
+        .survey-option.selected {
+            border-color: var(--accent);
+            background: var(--accent);
+            color: white;
+        }
+
+        .survey-text-input {
+            width: 100%;
+            padding: 16px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: none;
+        }
+
+        .survey-text-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .survey-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: space-between;
+        }
+
+        .survey-actions button {
+            flex: 1;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
   
         .modal {  
             display: none;  
@@ -659,6 +748,11 @@
         <div id="insightsView" class="hidden">  
             <div class="insights">  
                 <h2 style="margin-bottom: 20px;">Vos Insights</h2>  
+                
+                <div class="insight-card" id="weeklyBilan" style="display:none;">
+                    <div class="insight-title">📊 Bilan de ta semaine</div>
+                    <div id="bilanContent" class="insight-description"></div>
+                </div>
                   
                 <div class="insight-card">  
                     <div class="insight-title">📊 Constance</div>  
@@ -741,9 +835,31 @@
                 </div>  
             </div>  
         </div>  
+
+        <!-- Survey View -->
+        <div id="surveyView" class="hidden">
+            <div class="header">
+                <h1>Bilan de ta semaine</h1>
+                <p class="subtitle">7 questions rapides pour mieux te connaître</p>
+            </div>
+            
+            <div id="surveyProgress" class="survey-progress">
+                Question <span id="currentQuestion">1</span>/7
+            </div>
+            
+            <div id="surveyContainer" class="survey-container">
+                <!-- Questions will be rendered here -->
+            </div>
+            
+            <div class="survey-actions">
+                <button id="surveyPrevious" class="secondary" style="display:none;">← Précédent</button>
+                <button id="surveySkip" class="secondary">Passer</button>
+                <button id="surveyNext" class="primary">Suivant →</button>
+            </div>
+        </div>  
     </div>  
-  
-    <div class="nav-bottom">  
+
+    <div class="nav-bottom">
         <div class="nav-btn active" id="navJourney">Aujourd'hui</div>  
         <div class="nav-btn" id="navHistory">Historique</div>  
         <div class="nav-btn" id="navInsights">Insights</div>  

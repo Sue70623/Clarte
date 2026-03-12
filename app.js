@@ -1,10 +1,81 @@
-// app.js - V2.0 (Bug fix complet)
+// app.js - V2.2 (Questionnaire + Bilan enrichi)
 const app = {
     currentStep: 1,
     todayData: {},
     confirmCallback: null,
     cancelCallback: null,
     typingTimer: null,
+    surveyStep: 1,
+    surveyAnswers: {},
+    surveyQuestions: [
+        {
+            id: 'q1_week_feeling',
+            title: 'Comment était ta semaine ?',
+            type: 'emoji',
+            options: [
+                { value: -2, label: '😣 Difficile' },
+                { value: -1, label: '😕 Compliquée' },
+                { value: 0, label: '😐 Neutre' },
+                { value: 1, label: '🙂 Bonne' },
+                { value: 2, label: '😄 Excellente' }
+            ]
+        },
+        {
+            id: 'q2_energy',
+            title: 'Ton niveau d\'énergie global ?',
+            type: 'scale',
+            options: [
+                { value: 1, label: '🔋 Vide' },
+                { value: 2, label: '🔋🔋 Faible' },
+                { value: 3, label: '🔋🔋🔋 Moyen' },
+                { value: 4, label: '🔋🔋🔋🔋 Bon' },
+                { value: 5, label: '🔋🔋🔋🔋🔋 Plein' }
+            ]
+        },
+        {
+            id: 'q3_clarity',
+            title: 'Ta clarté mentale ?',
+            type: 'scale',
+            options: [
+                { value: 1, label: '🌫️ Floue' },
+                { value: 2, label: '⛅ Variable' },
+                { value: 3, label: '☀️ Claire' },
+                { value: 4, label: '✨ Très claire' }
+            ]
+        },
+        {
+            id: 'q4_change',
+            title: 'As-tu remarqué un changement cette semaine ?',
+            type: 'choice',
+            options: [
+                { value: 'positive', label: 'Oui, positif' },
+                { value: 'negative', label: 'Oui, négatif' },
+                { value: 'stable', label: 'Non, stable' },
+                { value: 'unknown', label: 'Je ne sais pas' }
+            ]
+        },
+        {
+            id: 'q5_helped',
+            title: 'Qu\'est-ce qui t\'a aidé le plus ?',
+            type: 'text',
+            placeholder: 'Ex: Nommer mon obstacle précisément',
+            maxLength: 100
+        },
+        {
+            id: 'q6_blocked',
+            title: 'Qu\'est-ce qui t\'a freiné ?',
+            type: 'text',
+            placeholder: 'Ex: Fatigue, manque de temps',
+            maxLength: 100
+        },
+        {
+            id: 'q7_word',
+            title: 'Un mot pour décrire ta semaine ?',
+            type: 'text',
+            placeholder: 'Ex: Mouvement, Stagnation, Clarté',
+            maxLength: 20
+        }
+    ],
     
     init() {
         this.migrateOldData();
@@ -171,6 +242,214 @@ const app = {
         });
     },
 
+    renderSurvey() {
+        const container = document.getElementById('surveyContainer');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        this.surveyQuestions.forEach((q, index) => {
+            const questionDiv = document.createElement('div');
+            questionDiv.className = `survey-question ${index === 0 ? 'active' : ''}`;
+            questionDiv.dataset.questionId = q.id;
+            
+            let optionsHtml = '';
+            
+            if (q.type === 'text') {
+                optionsHtml = `<textarea 
+                    class="survey-text-input" 
+                    placeholder="${q.placeholder || ''}" 
+                    maxlength="${q.maxLength || 200}"
+                    rows="3"
+                ></textarea>`;
+            } else {
+                optionsHtml = '<div class="survey-options">';
+                q.options.forEach(opt => {
+                    optionsHtml += `<div class="survey-option" data-value="${opt.value}">${opt.label}</div>`;
+                });
+                optionsHtml += '</div>';
+            }
+            
+            questionDiv.innerHTML = `
+                <div class="question-title">${q.title}</div>
+                ${optionsHtml}
+            `;
+            
+            container.appendChild(questionDiv);
+        });
+        
+        this.setupSurveyListeners();
+    },
+
+    setupSurveyListeners() {
+        // Clone container to remove old listeners (deduplication)
+        const container = document.getElementById('surveyContainer');
+        if (container) {
+            const newContainer = container.cloneNode(true);
+            container.parentNode.replaceChild(newContainer, container);
+        }
+        
+        // Re-attach listeners to cloned container
+        const finalContainer = document.getElementById('surveyContainer');
+        
+        // Option clicks via event delegation
+        finalContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('survey-option')) {
+                const questionDiv = e.target.closest('.survey-question');
+                if (!questionDiv) return;
+                
+                const questionId = questionDiv.dataset.questionId;
+                const value = e.target.dataset.value;
+                
+                // Deselect others
+                questionDiv.querySelectorAll('.survey-option').forEach(o => o.classList.remove('selected'));
+                e.target.classList.add('selected');
+                
+                // Save answer
+                this.surveyAnswers[questionId] = isNaN(value) ? value : parseFloat(value);
+            }
+        });
+        
+        // Text inputs
+        finalContainer.querySelectorAll('.survey-text-input').forEach(input => {
+            input.addEventListener('input', (e) => {
+                const questionDiv = e.target.closest('.survey-question');
+                const questionId = questionDiv.dataset.questionId;
+                this.surveyAnswers[questionId] = e.target.value.trim() || null;
+            });
+        });
+        
+        // Navigation buttons (clone to remove old listeners)
+        const nextBtn = document.getElementById('surveyNext');
+        const prevBtn = document.getElementById('surveyPrevious');
+        const skipBtn = document.getElementById('surveySkip');
+        
+        if (nextBtn) {
+            const newNext = nextBtn.cloneNode(true);
+            nextBtn.parentNode.replaceChild(newNext, nextBtn);
+            document.getElementById('surveyNext').addEventListener('click', () => this.surveyNext());
+        }
+        
+        if (prevBtn) {
+            const newPrev = prevBtn.cloneNode(true);
+            prevBtn.parentNode.replaceChild(newPrev, prevBtn);
+            document.getElementById('surveyPrevious').addEventListener('click', () => this.surveyPrevious());
+        }
+        
+        if (skipBtn) {
+            const newSkip = skipBtn.cloneNode(true);
+            skipBtn.parentNode.replaceChild(newSkip, skipBtn);
+            document.getElementById('surveySkip').addEventListener('click', () => this.surveySkip());
+        }
+    },
+
+    surveyNext() {
+        if (this.surveyStep >= 7) {
+            // Dernière question - terminer
+            this.completeSurvey();
+            return;
+        }
+        
+        // Passer à la question suivante
+        this.surveyStep++;
+        this.updateSurveyDisplay();
+    },
+
+    surveyPrevious() {
+        if (this.surveyStep <= 1) return;
+        this.surveyStep--;
+        this.updateSurveyDisplay();
+    },
+
+    surveySkip() {
+        if (this.surveyStep >= 7) {
+            this.completeSurvey();
+        } else {
+            this.surveyNext();
+        }
+    },
+
+    updateSurveyDisplay() {
+        // Update progress
+        document.getElementById('currentQuestion')?.textContent = this.surveyStep;
+        
+        // Show current question
+        document.querySelectorAll('.survey-question').forEach((q, i) => {
+            if (i === this.surveyStep - 1) {
+                q.classList.add('active');
+            } else {
+                q.classList.remove('active');
+            }
+        });
+        
+        // Update buttons
+        const prevBtn = document.getElementById('surveyPrevious');
+        const nextBtn = document.getElementById('surveyNext');
+        const skipBtn = document.getElementById('surveySkip');
+        
+        if (prevBtn) prevBtn.style.display = this.surveyStep > 1 ? 'block' : 'none';
+        if (nextBtn) nextBtn.textContent = this.surveyStep === 7 ? 'Terminer ✓' : 'Suivant →';
+        if (skipBtn) skipBtn.textContent = this.surveyStep === 7 ? 'Terminer sans répondre' : 'Passer';
+    },
+
+    completeSurvey() {
+        const today = this.getToday();
+        const weekNumber = this.getWeekNumber(new Date());
+        const weekStart = this.getWeekStart(new Date());
+        
+        const survey = {
+            weekStart: weekStart,
+            weekNumber: weekNumber,
+            responses: this.surveyAnswers,
+            completedAt: new Date().toISOString()
+        };
+        
+        localStorage.setItem(`weekly_survey_${weekNumber}`, JSON.stringify(survey));
+        
+        // Reset survey
+        this.surveyStep = 1;
+        this.surveyAnswers = {};
+        
+        // Go to insights
+        this.showView('insights');
+    },
+
+    getWeekNumber(date) {
+        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        const dayNum = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    },
+
+    getWeekStart(date) {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Lundi
+        d.setDate(diff);
+        return this.formatDate(d);
+    },
+
+    checkForSurvey() {
+        const entries = this.getAllEntries();
+        const uniqueDays = [...new Set(entries.map(e => e.date))];
+        const practiceCount = uniqueDays.length;
+        
+        // Vérifier si on a 7+ pratiques
+        if (practiceCount < 7) return false;
+        
+        // Vérifier si questionnaire déjà complété cette semaine
+        const weekNumber = this.getWeekNumber(new Date());
+        const existing = localStorage.getItem(`weekly_survey_${weekNumber}`);
+        
+        if (existing) return false;
+        
+        // Afficher le questionnaire
+        this.renderSurvey();
+        this.showView('survey');
+        return true;
+    },
+
 
 
     loadTodayData() {
@@ -192,8 +471,13 @@ const app = {
         if (maxSession > 0) {
             const saved = localStorage.getItem(`journey_${today}_${maxSession}`);
             if (saved) {
-                this.todayData = JSON.parse(saved);
-                this.todayData.sessionIndex = maxSession;
+                try {
+                    this.todayData = JSON.parse(saved);
+                    this.todayData.sessionIndex = maxSession;
+                } catch (e) {
+                    console.error('[Init] Données corrompues:', e);
+                    this.todayData = { sessionIndex: maxSession, date: today };
+                }
                 
                 // Restore data to textareas
                 for (let i = 1; i <= 5; i++) {
@@ -328,6 +612,14 @@ const app = {
         }
         
         this.updateStats();
+        
+        // Check if survey should be shown
+        setTimeout(() => {
+            if (!this.checkForSurvey()) {
+                // Si pas de questionnaire, afficher completion normalement
+                document.getElementById('completion')?.classList.remove('hidden');
+            }
+        }, 1000);
     },
 
     reviewPractice() {
@@ -474,11 +766,16 @@ const app = {
             if (key.startsWith('journey_')) {
                 const data = localStorage.getItem(key);
                 if (data) {
-                    const parsed = JSON.parse(data);
-                    if (parsed.completedAt) {
-                        entries.push({
-                            ...parsed
-                        });
+                    try {
+                        const parsed = JSON.parse(data);
+                        if (parsed.completedAt) {
+                            entries.push({
+                                ...parsed
+                            });
+                        }
+                    } catch (e) {
+                        console.error('[getAllEntries] Données corrompues:', key, e);
+                        // Continuer sans cette entrée corrompue
                     }
                 }
             }
@@ -517,6 +814,9 @@ const app = {
         } else if (view === 'settings') {
             document.getElementById('settingsView')?.classList.remove('hidden');
             document.getElementById('navSettings')?.classList.add('active');
+        } else if (view === 'survey') {
+            document.getElementById('surveyView')?.classList.remove('hidden');
+            // No nav active - survey has no tab
         }
     },
 
@@ -545,6 +845,94 @@ const app = {
 
     renderInsights() {
         const entries = this.getAllEntries();
+        
+        // Bilan hebdomadaire
+        const weekNumber = this.getWeekNumber(new Date());
+        const survey = localStorage.getItem(`weekly_survey_${weekNumber}`);
+        const bilanCard = document.getElementById('weeklyBilan');
+        
+        if (survey && bilanCard) {
+            let surveyData;
+            try {
+                surveyData = JSON.parse(survey);
+            } catch (e) {
+                console.error('[Survey] Données corrompues:', e);
+                bilanCard.style.display = 'none';
+                // Continue sans afficher le bilan si erreur
+                surveyData = null;
+            }
+            
+            if (!surveyData) {
+                bilanCard.style.display = 'none';
+            } else {
+                bilanCard.style.display = 'block';
+                
+                const last7 = entries.slice(0, 7);
+                const uniqueDays = [...new Set(last7.map(e => e.date))];
+                const committed = uniqueDays.filter(day => {
+                    const dayEntries = last7.filter(e => e.date === day);
+                    const firstSession = dayEntries.find(e => e.sessionIndex === 1);
+                    return firstSession && firstSession.committed;
+                }).length;
+                
+                let bilanHtml = `<strong>✅ Constance</strong><br>`;
+                bilanHtml += `${uniqueDays.length}/7 pratiques<br>`;
+                bilanHtml += `${committed}/${uniqueDays.length} engagements<br><br>`;
+                
+                // Humeur
+                const withMood = last7.filter(e => e.moodBefore !== null && e.moodAfter !== null);
+                if (withMood.length > 0) {
+                    const avgBefore = withMood.reduce((sum, e) => sum + e.moodBefore, 0) / withMood.length;
+                    const avgAfter = withMood.reduce((sum, e) => sum + e.moodAfter, 0) / withMood.length;
+                    
+                    bilanHtml += `<strong>😊 Humeur</strong><br>`;
+                    bilanHtml += `Arrivée : ${avgBefore.toFixed(1)}<br>`;
+                    bilanHtml += `Départ : ${avgAfter.toFixed(1)}<br>`;
+                    bilanHtml += `Impact : ${(avgAfter - avgBefore > 0 ? '+' : '')}${(avgAfter - avgBefore).toFixed(1)}<br><br>`;
+                }
+                
+                // Réponses questionnaire
+                if (surveyData.responses) {
+                    const r = surveyData.responses;
+                    bilanHtml += `<strong>🗨️ Cette semaine tu as dit :</strong><br>`;
+                    
+                    const feelingEmoji = {'-2': '😣', '-1': '😕', '0': '😐', '1': '🙂', '2': '😄'};
+                    if (r.q1_week_feeling !== undefined) {
+                        bilanHtml += `• Semaine : ${feelingEmoji[String(r.q1_week_feeling)]} <br>`;
+                    }
+                    if (r.q2_energy) {
+                        bilanHtml += `• Énergie : ${'🔋'.repeat(r.q2_energy)}<br>`;
+                    }
+                    if (r.q3_clarity) {
+                        const clarityEmoji = {1: '🌫️', 2: '⛅', 3: '☀️', 4: '✨'};
+                        bilanHtml += `• Clarté : ${clarityEmoji[r.q3_clarity]}<br>`;
+                    }
+                    if (r.q4_change) {
+                        const changeLabel = {
+                            'positive': 'Oui, positif',
+                            'negative': 'Oui, négatif',
+                            'stable': 'Non, stable',
+                            'unknown': 'Je ne sais pas'
+                        };
+                        bilanHtml += `• Changement : ${changeLabel[r.q4_change]}<br>`;
+                    }
+                    if (r.q5_helped) {
+                        bilanHtml += `• Aidé par : "${r.q5_helped}"<br>`;
+                    }
+                    if (r.q6_blocked) {
+                        bilanHtml += `• Freiné par : "${r.q6_blocked}"<br>`;
+                    }
+                    if (r.q7_word) {
+                        bilanHtml += `• En un mot : "${r.q7_word}"`;
+                    }
+                }
+                
+                document.getElementById('bilanContent').innerHTML = bilanHtml;
+            }
+        } else if (bilanCard) {
+            bilanCard.style.display = 'none';
+        }
+        
         const last30 = entries.slice(0, 30);
         
         // Constance
