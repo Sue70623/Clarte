@@ -31,6 +31,60 @@ const app = {
             });
         }
 
+        // Mood before listeners
+        document.querySelectorAll('#moodBefore .mood-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mood = parseInt(btn.dataset.mood);
+                this.todayData.moodBefore = mood;
+                this.saveTodayData();
+                
+                // Visual feedback
+                document.querySelectorAll('#moodBefore .mood-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                
+                // Auto-advance after 500ms
+                setTimeout(() => {
+                    document.getElementById('moodBefore')?.classList.add('hidden');
+                    document.querySelector('[data-step="1"]')?.classList.remove('hidden');
+                    this.currentStep = 1;
+                }, 500);
+            });
+        });
+
+        document.querySelector('#moodBefore .skip-btn')?.addEventListener('click', () => {
+            this.todayData.moodBefore = null;
+            this.saveTodayData();
+            document.getElementById('moodBefore')?.classList.add('hidden');
+            document.querySelector('[data-step="1"]')?.classList.remove('hidden');
+            this.currentStep = 1;
+        });
+
+        // Mood after listeners
+        document.querySelectorAll('#moodAfter .mood-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mood = parseInt(btn.dataset.mood);
+                this.todayData.moodAfter = mood;
+                this.saveTodayData();
+                
+                // Visual feedback
+                document.querySelectorAll('#moodAfter .mood-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                
+                // Auto-advance after 500ms
+                setTimeout(() => {
+                    document.getElementById('moodAfter')?.classList.add('hidden');
+                    document.getElementById('completion')?.classList.remove('hidden');
+                }, 500);
+            });
+        });
+
+        document.querySelector('#moodAfter .skip-btn')?.addEventListener('click', () => {
+            this.todayData.moodAfter = null;
+            this.saveTodayData();
+            document.getElementById('moodAfter')?.classList.add('hidden');
+            document.getElementById('completion')?.classList.remove('hidden');
+        });
+
         // Engagement buttons
         document.getElementById('notToday')?.addEventListener('click', () => this.completeJourney(false));
         document.getElementById('yesToday')?.addEventListener('click', () => this.completeJourney(true));
@@ -87,27 +141,57 @@ const app = {
 
     loadTodayData() {
         const today = this.getToday();
-        const saved = localStorage.getItem(`journey_${today}`);
         
-        if (saved) {
-            this.todayData = JSON.parse(saved);
-            
-            // Restore data to textareas
-            for (let i = 1; i <= 5; i++) {
-                const textarea = document.getElementById(`step${i}`);
-                if (textarea && this.todayData[`step${i}`]) {
-                    textarea.value = this.todayData[`step${i}`];
+        // Trouver la dernière session du jour
+        let maxSession = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith(`journey_${today}_`)) {
+                const sessionNum = parseInt(key.split('_')[3]);
+                if (sessionNum > maxSession) {
+                    maxSession = sessionNum;
                 }
             }
+        }
+        
+        // Charger la dernière session ou créer session 1
+        if (maxSession > 0) {
+            const saved = localStorage.getItem(`journey_${today}_${maxSession}`);
+            if (saved) {
+                this.todayData = JSON.parse(saved);
+                this.todayData.sessionIndex = maxSession;
+                
+                // Restore data to textareas
+                for (let i = 1; i <= 5; i++) {
+                    const textarea = document.getElementById(`step${i}`);
+                    if (textarea && this.todayData[`step${i}`]) {
+                        textarea.value = this.todayData[`step${i}`];
+                    }
+                }
+            }
+        } else {
+            // Première session du jour
+            this.todayData = { sessionIndex: 1, date: today };
         }
     },
 
     saveTodayData() {
         const today = this.getToday();
-        localStorage.setItem(`journey_${today}`, JSON.stringify(this.todayData));
+        const sessionIndex = this.todayData.sessionIndex || 1;
+        const key = `journey_${today}_${sessionIndex}`;
+        localStorage.setItem(key, JSON.stringify(this.todayData));
     },
 
     restoreSession() {
+        // If practice not yet started, show mood before
+        if (!this.todayData.step1 && !this.todayData.completedAt) {
+            document.getElementById('moodBefore')?.classList.remove('hidden');
+            document.querySelectorAll('.step').forEach(el => {
+                if (el.id !== 'moodBefore') el.classList.add('hidden');
+            });
+            return;
+        }
+        
         // If already completed today, show completion with actions
         if (this.todayData.completedAt) {
             const completedDate = this.todayData.completedAt.split('T')[0];
@@ -200,8 +284,8 @@ const app = {
         // Hide all steps
         document.querySelectorAll('.step').forEach(el => el.classList.add('hidden'));
         
-        // Show completion
-        document.getElementById('completion')?.classList.remove('hidden');
+        // Show mood after instead of completion
+        document.getElementById('moodAfter')?.classList.remove('hidden');
         
         // Set button text
         const newPracticeBtn = document.getElementById('newPractice');
@@ -243,9 +327,24 @@ const app = {
     const completedDate = this.todayData.completedAt ? this.todayData.completedAt.split('T')[0] : null;
     
     if (completedDate === today) {
-        // ✅ NOUVEAU : Lance vraiment une nouvelle session
+        // Trouver le prochain numéro de session
+        let maxSession = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith(`journey_${today}_`)) {
+                const sessionNum = parseInt(key.split('_')[3]);
+                if (sessionNum > maxSession) {
+                    maxSession = sessionNum;
+                }
+            }
+        }
+        
+        // Créer nouvelle session
         this.currentStep = 1;
-        this.todayData = {}; // Reset pour session 2
+        this.todayData = { 
+            sessionIndex: maxSession + 1,
+            date: today
+        };
         
         // Reset UI
         document.querySelectorAll('.step').forEach((el, i) => {
@@ -256,24 +355,24 @@ const app = {
                 el.classList.add('hidden');
             }
             
-            // Re-enable textareas
             const textarea = el.querySelector('textarea');
             if (textarea) {
                 textarea.disabled = false;
-                textarea.value = ''; // Vider
+                textarea.value = '';
             }
         });
         
         // Re-enable engagement buttons
-        document.getElementById('notToday').disabled = false;
-        document.getElementById('yesToday').disabled = false;
+        const notTodayBtn = document.getElementById('notToday');
+        const yesTodayBtn = document.getElementById('yesToday');
+        if (notTodayBtn) notTodayBtn.disabled = false;
+        if (yesTodayBtn) yesTodayBtn.disabled = false;
         
-        // Hide completion
+        // Hide completion and show mood before
         document.getElementById('completion')?.classList.add('hidden');
+        document.getElementById('moodBefore')?.classList.remove('hidden');
         
-        // Scroll to top
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        
     } else {
         // Different day - safe to reset
         this.resetForNewDay();
@@ -317,8 +416,17 @@ const app = {
 
     updateStats() {
         const entries = this.getAllEntries();
-        const practiceCount = entries.length;
-        const committedCount = entries.filter(e => e.committed).length;
+        
+        // Jours distincts (ignorer sessionIndex)
+        const uniqueDays = [...new Set(entries.map(e => e.date))];
+        const practiceCount = uniqueDays.length;
+        
+        // Total engagements sur première session de chaque jour
+        const committedCount = uniqueDays.filter(day => {
+            const dayEntries = entries.filter(e => e.date === day);
+            const firstSession = dayEntries.find(e => (e.sessionIndex || 1) === 1);
+            return firstSession && firstSession.committed;
+        }).length;
         
         document.getElementById('practiceCount').textContent = practiceCount;
         document.getElementById('committedCount').textContent = committedCount;
@@ -327,24 +435,28 @@ const app = {
     getAllEntries() {
         const entries = [];
         
-        for (let i = 0; i < 365; i++) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            const dateStr = this.formatDate(date);
-            const data = localStorage.getItem(`journey_${dateStr}`);
-            
-            if (data) {
-                const parsed = JSON.parse(data);
-                if (parsed.completedAt) {
-                    entries.push({
-                        date: dateStr,
-                        ...parsed
-                    });
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith('journey_')) {
+                const data = localStorage.getItem(key);
+                if (data) {
+                    const parsed = JSON.parse(data);
+                    if (parsed.completedAt) {
+                        entries.push({
+                            ...parsed
+                        });
+                    }
                 }
             }
         }
         
-        return entries;
+        // Trier par date DESC puis sessionIndex DESC
+        return entries.sort((a, b) => {
+            if (a.date !== b.date) {
+                return b.date.localeCompare(a.date);
+            }
+            return (b.sessionIndex || 1) - (a.sessionIndex || 1);
+        });
     },
 
     showView(view) {
@@ -415,6 +527,39 @@ const app = {
             document.getElementById('insightConstanceText').textContent = 'Votre pratique devient une habitude solide.';
         } else {
             document.getElementById('insightConstanceText').textContent = 'Vous êtes extrêmement constant. C\'est remarquable.';
+        }
+        
+        // Mood insights (last 7 days)
+        const last7 = entries.slice(0, 7);
+        const moodsBefore = last7.filter(entry => entry.moodBefore !== null && entry.moodBefore !== undefined).map(e => e.moodBefore);
+        const moodsAfter = last7.filter(entry => entry.moodAfter !== null && entry.moodAfter !== undefined).map(e => e.moodAfter);
+        
+        const moodInsightEl = document.getElementById('moodInsight');
+        if (moodInsightEl) {
+            if (moodsBefore.length > 0 && moodsAfter.length > 0) {
+                const avgBefore = moodsBefore.reduce((a, b) => a + b, 0) / moodsBefore.length;
+                const avgAfter = moodsAfter.reduce((a, b) => a + b, 0) / moodsAfter.length;
+                const improvement = Math.round((avgAfter - avgBefore) * 10) / 10;
+                const improvementPercent = Math.round((improvement / 4) * 100);
+                
+                // Emoji representation
+                const moodEmojis = { '-2': '😢', '-1': '😟', '0': '😐', '1': '🙂', '2': '😊' };
+                const beforeEmoji = moodEmojis[avgBefore.toFixed(1)] || moodEmojis[Math.round(avgBefore)];
+                const afterEmoji = moodEmojis[avgAfter.toFixed(1)] || moodEmojis[Math.round(avgAfter)];
+                
+                moodInsightEl.innerHTML = `
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px; margin: 10px 0;">${beforeEmoji} → ${afterEmoji}</div>
+                        <div style="font-size: 14px; color: #666;">Avant → Après</div>
+                        <div style="font-size: 18px; margin-top: 10px; font-weight: bold; color: ${improvement > 0 ? '#4CAF50' : '#FF6B6B'};">
+                            ${improvement > 0 ? '+' : ''}${improvement.toFixed(1)}
+                        </div>
+                        <div style="font-size: 12px; color: #999;">Amélioration de l'humeur cette semaine</div>
+                    </div>
+                `;
+            } else {
+                moodInsightEl.innerHTML = '<div style="text-align: center; color: #999; font-size: 12px;">Enregistrez votre humeur pour voir votre progression 📊</div>';
+            }
         }
         
         // Days grid (last 30 days)

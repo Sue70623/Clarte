@@ -448,6 +448,50 @@
             background: var(--bg);  
         }  
   
+        .mood-selector {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin: 24px 0;
+        }
+
+        .mood-btn {
+            font-size: 48px;
+            background: none;
+            border: 3px solid transparent;
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 0;
+        }
+
+        .mood-btn:hover {
+            transform: scale(1.1);
+            border-color: var(--border);
+        }
+
+        .mood-btn.selected {
+            border-color: var(--accent);
+            background: var(--bg);
+        }
+
+        .skip-btn {
+            margin-top: 16px;
+            padding: 10px 20px;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-light);
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .skip-btn:hover {
+            background: var(--bg);
+        }
+  
         .modal {  
             display: none;  
             position: fixed;  
@@ -492,31 +536,14 @@
             gap: 12px;  
         }  
   
-        @media (max-width: 480px) {  
-            .step {  
-                padding: 24px 20px;  
-            }  
-  
-            h1 {  
-                font-size: 24px;  
-            }  
-  
-            .stats {  
-                flex-direction: column;  
-                align-items: center;  
-            }  
-  
-            .nav-bottom {  
-                grid-template-columns: repeat(4, 1fr);  
-                gap: 8px;  
-            }  
-  
-            .nav-btn {  
-                font-size: 12px;  
-                padding: 10px 4px;  
-            }  
-        }  
-    </style>  
+        @media (max-width: 480px) {
+            .mood-btn {
+                font-size: 36px;
+                width: 60px;
+                height: 60px;
+            }
+        }
+    </style>
 </head>  
 <body>  
     <div class="container">  
@@ -538,6 +565,19 @@
         </header>  
   
         <div id="journeyView">  
+            <div class="step" id="moodBefore" data-step="0">
+                <div class="step-number">😊</div>
+                <div class="step-title">Comment te sens-tu en arrivant ?</div>
+                <div class="mood-selector">
+                    <button class="mood-btn" data-mood="-2">😣</button>
+                    <button class="mood-btn" data-mood="-1">😕</button>
+                    <button class="mood-btn" data-mood="0">😐</button>
+                    <button class="mood-btn" data-mood="1">🙂</button>
+                    <button class="mood-btn" data-mood="2">😄</button>
+                </div>
+                <button class="skip-btn">Passer</button>
+            </div>
+  
             <div class="step" data-step="1">  
                 <div class="step-number">1</div>  
                 <div class="step-title">Grâce</div>  
@@ -583,6 +623,19 @@
                 </div>  
             </div>  
   
+            <div class="step hidden" id="moodAfter" data-step="7">
+                <div class="step-number">😊</div>
+                <div class="step-title">Comment te sens-tu maintenant ?</div>
+                <div class="mood-selector">
+                    <button class="mood-btn" data-mood="-2">😣</button>
+                    <button class="mood-btn" data-mood="-1">😕</button>
+                    <button class="mood-btn" data-mood="0">😐</button>
+                    <button class="mood-btn" data-mood="1">🙂</button>
+                    <button class="mood-btn" data-mood="2">😄</button>
+                </div>
+                <button class="skip-btn">Passer</button>
+            </div>  
+  
             <div class="completion hidden" id="completion">  
                 <div class="completion-icon">✓</div>  
                 <h2>Pratique complétée</h2>  
@@ -598,7 +651,6 @@
             <div class="history">  
                 <div class="section-header">  
                     <h2>Historique</h2>  
-                    <button class="export-btn" id="exportData">Exporter</button>  
                 </div>  
                 <div id="historyList"></div>  
             </div>  
