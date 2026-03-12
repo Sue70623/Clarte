@@ -78,11 +78,17 @@ const app = {
     ],
     
     init() {
-        this.migrateOldData();
-        this.loadTodayData();
-        this.updateStats();
-        this.setupEventListeners();
-        this.restoreSession();
+        try {
+            this.migrateOldData();
+            this.loadTodayData();
+            this.updateStats();
+            this.setupEventListeners();
+            this.restoreSession();
+        } catch (error) {
+            console.error('[INIT ERROR] Erreur fatale lors de l\'initialisation:', error);
+            console.error('Stack:', error.stack);
+            alert('Erreur lors du chargement de l\'application. Consultez la console.');
+        }
     },
 
     migrateOldData() {
