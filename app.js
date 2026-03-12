@@ -7,11 +7,60 @@ const app = {
     typingTimer: null,
     
     init() {
-        this.checkAndResetIfNewDay();
+        this.migrateOldData();
         this.loadTodayData();
         this.updateStats();
         this.setupEventListeners();
         this.restoreSession();
+    },
+
+    migrateOldData() {
+        console.log('[Migration] Vérification données V2.0...');
+        let migrated = 0;
+        const keysToMigrate = [];
+        
+        // Trouver toutes les anciennes clés (sans sessionIndex)
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('journey_') && !key.match(/_\d+$/)) {
+                keysToMigrate.push(key);
+            }
+        }
+        
+        // Migrer chaque ancienne clé
+        keysToMigrate.forEach(oldKey => {
+            const data = localStorage.getItem(oldKey);
+            if (data) {
+                try {
+                    const parsed = JSON.parse(data);
+                    const dateMatch = oldKey.match(/journey_(\d{4}-\d{2}-\d{2})/);
+                    if (dateMatch) {
+                        const date = dateMatch[1];
+                        const newKey = `journey_${date}_1`;
+                        const migratedData = {
+                            date: date,
+                            sessionIndex: 1,
+                            moodBefore: null,
+                            moodAfter: null,
+                            ...parsed
+                        };
+                        
+                        localStorage.setItem(newKey, JSON.stringify(migratedData));
+                        localStorage.removeItem(oldKey);
+                        migrated++;
+                        console.log(`[Migration] ${oldKey} → ${newKey}`);
+                    }
+                } catch (e) {
+                    console.error('[Migration] Erreur:', oldKey, e);
+                }
+            }
+        });
+        
+        if (migrated > 0) {
+            console.log(`[Migration] ✅ ${migrated} pratiques migrées`);
+        } else {
+            console.log('[Migration] Aucune donnée à migrer');
+        }
     },
 
     setupEventListeners() {
@@ -122,22 +171,7 @@ const app = {
         });
     },
 
-    checkAndResetIfNewDay() {
-        const today = this.getToday();
-        const saved = localStorage.getItem(`journey_${today}`);
-        
-        if (saved) {
-            const data = JSON.parse(saved);
-            if (data.completedAt) {
-                const completedDate = data.completedAt.split('T')[0];
-                if (completedDate !== today) {
-                    // Completed on a different day, it's safe to start fresh
-                    // This shouldn't happen normally but handles edge cases
-                    return;
-                }
-            }
-        }
-    },
+
 
     loadTodayData() {
         const today = this.getToday();
@@ -612,14 +646,35 @@ const app = {
             const date = new Date(startDate);
             date.setDate(startDate.getDate() + i);
             const dateStr = this.formatDate(date);
-            const data = localStorage.getItem(`journey_${dateStr}`);
             
+            // Check if any session was completed on this day
             let className = 'day-cell';
-            if (data) {
-                const parsed = JSON.parse(data);
-                if (parsed.completedAt) {
-                    className += parsed.committed ? ' committed' : ' active';
+            let hasCompletedSession = false;
+            let isCommitted = false;
+            
+            for (let j = 0; j < localStorage.length; j++) {
+                const key = localStorage.key(j);
+                if (key && key.startsWith(`journey_${dateStr}_`)) {
+                    const data = localStorage.getItem(key);
+                    if (data) {
+                        try {
+                            const parsed = JSON.parse(data);
+                            if (parsed.completedAt) {
+                                hasCompletedSession = true;
+                                if (parsed.committed) {
+                                    isCommitted = true;
+                                    break; // Prioritize committed sessions
+                                }
+                            }
+                        } catch (e) {
+                            // Ignorer données corrompues
+                        }
+                    }
                 }
+            }
+            
+            if (hasCompletedSession) {
+                className += isCommitted ? ' committed' : ' active';
             }
             
             html += `<div class="${className}">${date.getDate()}</div>`;
@@ -768,10 +823,17 @@ const app = {
                 // Merge imported data
                 let importedCount = 0;
                 imported.forEach(entry => {
-                    if (entry.date && entry.completedAt) {
-                        const existing = localStorage.getItem(`journey_${entry.date}`);
+                    if (entry.completedAt) {
+                        const sessionIndex = entry.sessionIndex || 1;
+                        const date = entry.date || entry.completedAt.split('T')[0];
+                        const key = `journey_${date}_${sessionIndex}`;
+                        const existing = localStorage.getItem(key);
                         if (!existing) {
-                            localStorage.setItem(`journey_${entry.date}`, JSON.stringify(entry));
+                            localStorage.setItem(key, JSON.stringify({
+                                ...entry,
+                                date: date,
+                                sessionIndex: sessionIndex
+                            }));
                             importedCount++;
                         }
                     }
