@@ -4,6 +4,7 @@ const app = {
     todayData: {},
     confirmCallback: null,
     cancelCallback: null,
+    typingTimer: null,
     
     init() {
         this.checkAndResetIfNewDay();
@@ -21,9 +22,11 @@ const app = {
                 this.todayData[`step${i}`] = e.target.value;
                 this.saveTodayData();
                 
-                // Auto-advance when there's meaningful content
-                if (e.target.value.trim().length > 10 && i < 6 && !this.todayData.completedAt) {
-                    setTimeout(() => this.nextStep(), 500);
+                // Debounce - attendre que l'utilisateur arrête de taper
+                clearTimeout(this.typingTimer);
+                
+                if (e.target.value.trim().length > 0 && i < 6 && !this.todayData.completedAt) {
+                    this.typingTimer = setTimeout(() => this.nextStep(), 800);
                 }
             });
         }
@@ -170,6 +173,12 @@ const app = {
     nextStep() {
         if (this.currentStep >= 6) return;
         
+        // Vérifier que le step actuel est bien rempli avant d'avancer
+        const currentTextarea = document.getElementById(`step${this.currentStep}`);
+        if (!currentTextarea || currentTextarea.value.trim().length === 0) {
+            return; // Ne pas avancer si vide
+        }
+        
         const currentStepEl = document.querySelector(`[data-step="${this.currentStep}"]`);
         currentStepEl?.classList.add('completed');
         
@@ -221,30 +230,55 @@ const app = {
             }
         }
         
+        // Désactiver les boutons engagement pour éviter re-completion
+        document.getElementById('notToday').disabled = true;
+        document.getElementById('yesToday').disabled = true;
+        
         // Scroll to top
         window.scrollTo({ top: 0, behavior: 'smooth' });
     },
 
     startNewPractice() {
-        const today = this.getToday();
-        const completedDate = this.todayData.completedAt ? this.todayData.completedAt.split('T')[0] : null;
+    const today = this.getToday();
+    const completedDate = this.todayData.completedAt ? this.todayData.completedAt.split('T')[0] : null;
+    
+    if (completedDate === today) {
+        // ✅ NOUVEAU : Lance vraiment une nouvelle session
+        this.currentStep = 1;
+        this.todayData = {}; // Reset pour session 2
         
-        if (completedDate === today) {
-            // Same day - already completed today
-            // Show modal with options
-            this.showModal(
-                'Pratique déjà complétée',
-                'Vous avez déjà complété votre pratique aujourd\'hui. Voulez-vous revoir votre pratique ou consulter l\'historique ?',
-                () => this.showView('history'),
-                'Voir l\'historique',
-                () => this.reviewPractice(),
-                'Revoir ma pratique'
-            );
-        } else {
-            // Different day - safe to reset
-            this.resetForNewDay();
-        }
-    },
+        // Reset UI
+        document.querySelectorAll('.step').forEach((el, i) => {
+            el.classList.remove('completed');
+            if (i === 0) {
+                el.classList.remove('hidden');
+            } else {
+                el.classList.add('hidden');
+            }
+            
+            // Re-enable textareas
+            const textarea = el.querySelector('textarea');
+            if (textarea) {
+                textarea.disabled = false;
+                textarea.value = ''; // Vider
+            }
+        });
+        
+        // Re-enable engagement buttons
+        document.getElementById('notToday').disabled = false;
+        document.getElementById('yesToday').disabled = false;
+        
+        // Hide completion
+        document.getElementById('completion')?.classList.add('hidden');
+        
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+    } else {
+        // Different day - safe to reset
+        this.resetForNewDay();
+    }
+},
 
     resetForNewDay() {
         this.currentStep = 1;
