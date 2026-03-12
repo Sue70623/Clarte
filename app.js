@@ -478,19 +478,14 @@ const app = {
         const uniqueDays = [...new Set(entries.map(e => e.date))];
         const practiceCount = uniqueDays.length;
         
-        // Vérifier si on a 7+ pratiques
         if (practiceCount < 7) return false;
         
-        // Vérifier si questionnaire déjà complété cette semaine
         const weekNumber = this.getWeekNumber(new Date());
         const existing = localStorage.getItem(`weekly_survey_${weekNumber}`);
         
         if (existing) return false;
         
-        // Afficher le questionnaire
-        this.isManualSurvey = false;
-        this.renderSurvey();
-        this.showView('survey');
+        // Retourne true si un bilan est disponible (ne l'ouvre plus automatiquement)
         return true;
     },
 
@@ -643,11 +638,10 @@ const app = {
         this.todayData.completedAt = new Date().toISOString();
         this.saveTodayData();
         
-        // Hide all steps
+        // Cache TOUS les éléments de la pratique
         document.querySelectorAll('.step').forEach(el => el.classList.add('hidden'));
-        
-        // Show mood after instead of completion
-        document.getElementById('moodAfter')?.classList.remove('hidden');
+        document.getElementById('moodBefore')?.classList.add('hidden');
+        document.getElementById('moodAfter')?.classList.add('hidden');
         
         // Set button text
         const newPracticeBtn = document.getElementById('newPractice');
@@ -657,13 +651,8 @@ const app = {
         
         this.updateStats();
         
-        // Check if survey should be shown
-        setTimeout(() => {
-            if (!this.checkForSurvey()) {
-                // Si pas de questionnaire, afficher completion normalement
-                document.getElementById('completion')?.classList.remove('hidden');
-            }
-        }, 1000);
+        // Affiche UNIQUEMENT l'écran completion
+        document.getElementById('completion')?.classList.remove('hidden');
     },
 
     reviewPractice() {
@@ -868,23 +857,172 @@ const app = {
         const historyList = document.getElementById('historyList');
         if (!historyList) return;
         
-        const entries = this.getAllEntries().slice(0, 30);
+        // Récupérer TOUTES les pratiques
+        const practices = this.getAllEntries();
         
-        if (entries.length === 0) {
-            historyList.innerHTML = '<div class="empty-state">Aucune entrée pour le moment.<br>Commencez votre pratique aujourd\'hui.</div>';
+        // Récupérer TOUS les bilans
+        const surveys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('weekly_survey')) {
+                const data = localStorage.getItem(key);
+                if (data) {
+                    try {
+                        const parsed = JSON.parse(data);
+                        if (parsed.completedAt) {
+                            surveys.push({
+                                key: key,
+                                data: parsed,
+                                timestamp: new Date(parsed.completedAt).getTime(),
+                                isManual: key.startsWith('weekly_survey_manual_')
+                            });
+                        }
+                    } catch (e) {
+                        console.error('[History] Survey parse error:', e);
+                    }
+                }
+            }
+        }
+        
+        // Trier bilans par date DESC
+        surveys.sort((a, b) => b.timestamp - a.timestamp);
+        
+        // Construire HTML
+        let html = '';
+        
+        // Section Pratiques
+        html += '<div class="history-section">';
+        html += '<h3 style="margin-bottom: 16px;">🧘 Pratiques</h3>';
+        
+        if (practices.length === 0) {
+            html += '<div class="empty-state">Aucune pratique enregistrée</div>';
+        } else {
+            practices.forEach(entry => {
+                const date = new Date(entry.completedAt);
+                const dateStr = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+                const timeStr = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                
+                html += `
+                    <div class="history-item" style="cursor:pointer;" onclick="app.viewPractice('${entry.date}', ${entry.sessionIndex || 1})">
+                        <div class="history-date">${dateStr}, ${timeStr}</div>
+                        <div class="history-vision">${this.truncate(entry.step2 || '...', 100)}</div>
+                        <div class="history-action">
+                            ${entry.committed ? '✓ Action engagée' : '○ Pratique complétée'}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        html += '</div>';
+        
+        // Section Bilans
+        html += '<div class="history-section" style="margin-top: 32px;">';
+        html += '<h3 style="margin-bottom: 16px;">📝 Bilans</h3>';
+        
+        if (surveys.length === 0) {
+            html += '<div class="empty-state">Aucun bilan enregistré</div>';
+        } else {
+            surveys.forEach(survey => {
+                const date = new Date(survey.data.completedAt);
+                const dateStr = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+                const timeStr = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                const type = survey.isManual ? 'Manuel' : 'Hebdomadaire';
+                
+                html += `
+                    <div class="history-item" style="cursor:pointer;" onclick="app.viewSurvey('${survey.key}')">
+                        <div class="history-date">${dateStr}, ${timeStr}</div>
+                        <div class="history-vision">Bilan ${type.toLowerCase()}</div>
+                        <div class="history-action">📊 Cliquer pour voir le détail</div>
+                    </div>
+                `;
+            });
+        }
+        
+        html += '</div>';
+        
+        historyList.innerHTML = html;
+    },
+
+    viewPractice(date, sessionIndex) {
+        const key = `journey_${date}_${sessionIndex}`;
+        const data = localStorage.getItem(key);
+        
+        if (!data) {
+            alert('Pratique introuvable');
             return;
         }
         
-        historyList.innerHTML = entries.map(entry => `
-            <div class="history-item">
-                <div class="history-date">${this.formatDateFr(entry.date)}</div>
-                <div class="history-vision">${this.truncate(entry.step2 || 'Pas de vision enregistrée', 100)}</div>
-                <div class="history-action">
-                    ${entry.committed ? '✓ Action engagée' : '○ Pratique complétée'}
-                    ${entry.step5 ? ': ' + this.truncate(entry.step5, 60) : ''}
-                </div>
-            </div>
-        `).join('');
+        try {
+            const practice = JSON.parse(data);
+            const completedDate = new Date(practice.completedAt).toLocaleDateString('fr-FR');
+            
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;';
+            overlay.addEventListener('click', () => overlay.remove());
+            
+            const card = document.createElement('div');
+            card.style.cssText = 'background:var(--bg);border-radius:16px;padding:24px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;';
+            card.addEventListener('click', (e) => e.stopPropagation());
+            card.innerHTML = `
+                <h2 style="margin-bottom:16px;">Pratique du ${completedDate}</h2>
+                <h3>🙏 Gratitude</h3>
+                <p>${practice.step1 || 'Non renseigné'}</p>
+                <h3 style="margin-top:12px;">🎯 Vision</h3>
+                <p>${practice.step2 || 'Non renseigné'}</p>
+                <h3 style="margin-top:12px;">🚧 Obstacle</h3>
+                <p>${practice.step3 || 'Non renseigné'}</p>
+                <h3 style="margin-top:12px;">💎 Ressources</h3>
+                <p>${practice.step4 || 'Non renseigné'}</p>
+                <h3 style="margin-top:12px;">⚡ Micro-action</h3>
+                <p>${practice.step5 || 'Non renseigné'}</p>
+                <p style="margin-top:24px;color:var(--text-light);">
+                    ${practice.committed ? '✓ Action engagée' : '○ Pratique complétée sans engagement'}
+                </p>
+                <button onclick="this.closest('div[style*=fixed]').remove()" style="margin-top:16px;width:100%;">Fermer</button>
+            `;
+            
+            overlay.appendChild(card);
+            document.body.appendChild(overlay);
+        } catch (e) {
+            console.error('[ViewPractice] Error:', e);
+            alert('Erreur lors du chargement de la pratique');
+        }
+    },
+
+    viewSurvey(key) {
+        const data = localStorage.getItem(key);
+        
+        if (!data) {
+            alert('Bilan introuvable');
+            return;
+        }
+        
+        try {
+            const survey = JSON.parse(data);
+            const responses = survey.responses || {};
+            const completedDate = new Date(survey.completedAt).toLocaleDateString('fr-FR');
+            const responsesHtml = this.formatSurveyResponses(responses);
+            
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;';
+            overlay.addEventListener('click', () => overlay.remove());
+            
+            const card = document.createElement('div');
+            card.style.cssText = 'background:var(--bg);border-radius:16px;padding:24px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;';
+            card.addEventListener('click', (e) => e.stopPropagation());
+            card.innerHTML = `
+                <h2 style="margin-bottom:16px;">Bilan du ${completedDate}</h2>
+                <div style="font-size:15px;line-height:1.8;">${responsesHtml}</div>
+                <button onclick="this.closest('div[style*=fixed]').remove()" style="margin-top:16px;width:100%;">Fermer</button>
+            `;
+            
+            overlay.appendChild(card);
+            document.body.appendChild(overlay);
+        } catch (e) {
+            console.error('[ViewSurvey] Error:', e);
+            alert('Erreur lors du chargement du bilan');
+        }
     },
 
     formatSurveyResponses(responses) {
@@ -943,142 +1081,34 @@ const app = {
     renderInsights() {
         const entries = this.getAllEntries();
         
-        // Bilan hebdomadaire
-        const weekNumber = this.getWeekNumber(new Date());
-        const survey = localStorage.getItem(`weekly_survey_${weekNumber}`);
-        const bilanCard = document.getElementById('weeklyBilan');
-        
-        if (survey && bilanCard) {
-            let surveyData;
-            try {
-                surveyData = JSON.parse(survey);
-            } catch (e) {
-                console.error('[Survey] Données corrompues:', e);
-                bilanCard.style.display = 'none';
-                // Continue sans afficher le bilan si erreur
-                surveyData = null;
-            }
+        // Bilan hebdomadaire — stats agrégées seulement
+        const weeklyBilan = document.getElementById('weeklyBilan');
+        if (weeklyBilan) {
+            const currentWeek = this.getWeekNumber(new Date());
+            const survey = localStorage.getItem(`weekly_survey_${currentWeek}`);
             
-            if (!surveyData) {
-                bilanCard.style.display = 'none';
-            } else {
-                bilanCard.style.display = 'block';
-                
-                const last7 = entries.slice(0, 7);
-                const uniqueDays = [...new Set(last7.map(e => e.date))];
-                const committed = uniqueDays.filter(day => {
-                    const dayEntries = last7.filter(e => e.date === day);
-                    const firstSession = dayEntries.find(e => e.sessionIndex === 1);
-                    return firstSession && firstSession.committed;
-                }).length;
-                
-                let bilanHtml = `<strong>✅ Constance</strong><br>`;
-                bilanHtml += `${uniqueDays.length}/7 pratiques<br>`;
-                bilanHtml += `${committed}/${uniqueDays.length} engagements<br><br>`;
-                
-                // Humeur
-                const withMood = last7.filter(e => e.moodBefore !== null && e.moodAfter !== null);
-                if (withMood.length > 0) {
-                    const avgBefore = withMood.reduce((sum, e) => sum + e.moodBefore, 0) / withMood.length;
-                    const avgAfter = withMood.reduce((sum, e) => sum + e.moodAfter, 0) / withMood.length;
-                    
-                    bilanHtml += `<strong>😊 Humeur</strong><br>`;
-                    bilanHtml += `Arrivée : ${avgBefore.toFixed(1)}<br>`;
-                    bilanHtml += `Départ : ${avgAfter.toFixed(1)}<br>`;
-                    bilanHtml += `Impact : ${(avgAfter - avgBefore > 0 ? '+' : '')}${(avgAfter - avgBefore).toFixed(1)}<br><br>`;
-                }
-                
-                // Réponses questionnaire
-                if (surveyData.responses) {
-                    const r = surveyData.responses;
-                    bilanHtml += `<strong>🗨️ Cette semaine tu as dit :</strong><br>`;
-                    
-                    const feelingEmoji = {'-2': '😣', '-1': '😕', '0': '😐', '1': '🙂', '2': '😄'};
-                    if (r.q1_week_feeling !== undefined) {
-                        bilanHtml += `• Semaine : ${feelingEmoji[String(r.q1_week_feeling)]} <br>`;
-                    }
-                    if (r.q2_energy) {
-                        bilanHtml += `• Énergie : ${'🔋'.repeat(r.q2_energy)}<br>`;
-                    }
-                    if (r.q3_clarity) {
-                        const clarityEmoji = {1: '🌫️', 2: '⛅', 3: '☀️', 4: '✨'};
-                        bilanHtml += `• Clarté : ${clarityEmoji[r.q3_clarity]}<br>`;
-                    }
-                    if (r.q4_change) {
-                        const changeLabel = {
-                            'positive': 'Oui, positif',
-                            'negative': 'Oui, négatif',
-                            'stable': 'Non, stable',
-                            'unknown': 'Je ne sais pas'
-                        };
-                        bilanHtml += `• Changement : ${changeLabel[r.q4_change]}<br>`;
-                    }
-                    if (r.q5_helped) {
-                        bilanHtml += `• Aidé par : "${r.q5_helped}"<br>`;
-                    }
-                    if (r.q6_blocked) {
-                        bilanHtml += `• Freiné par : "${r.q6_blocked}"<br>`;
-                    }
-                    if (r.q7_word) {
-                        bilanHtml += `• En un mot : "${r.q7_word}"`;
-                    }
-                }
-                
-                document.getElementById('bilanContent').innerHTML = bilanHtml;
-                
-                // Afficher les bilans manuels
-                let manualBilansHtml = '';
-                const manualSurveys = [];
-                
-                // Récupérer tous les bilans manuels
-                for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
-                    if (key && key.startsWith('weekly_survey_manual_')) {
-                        try {
-                            const data = JSON.parse(localStorage.getItem(key));
-                            if (data && data.completedAt) {
-                                manualSurveys.push({
-                                    key: key,
-                                    timestamp: parseInt(key.replace('weekly_survey_manual_', '')),
-                                    data: data
-                                });
-                            }
-                        } catch (e) {
-                            console.error('Erreur parsing bilan manuel:', e);
-                        }
-                    }
-                }
-                
-                // Trier par date décroissante (plus récents en premier)
-                manualSurveys.sort((a, b) => b.timestamp - a.timestamp);
-                
-                // Afficher les 3 plus récents
-                if (manualSurveys.length > 0) {
-                    const bilansToShow = manualSurveys.slice(0, 3);
-                    manualBilansHtml = '<h3 style="margin-top: 20px;">📋 Bilans manuels récents</h3>';
-                    bilansToShow.forEach(bilan => {
-                        const date = new Date(bilan.timestamp);
-                        const dateStr = date.toLocaleDateString('fr-FR', {
-                            weekday: 'short',
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                        });
-                        const responsesHtml = this.formatSurveyResponses(bilan.data.responses || {});
-                        manualBilansHtml += `
-                            <div class="insight-card" style="margin-bottom: 15px;">
-                                <div style="font-size: 12px; color: #999; margin-bottom: 10px;">📅 ${dateStr}</div>
-                                <div style="font-size: 13px; line-height: 1.6;">${responsesHtml}</div>
-                            </div>
+            if (survey) {
+                try {
+                    const data = JSON.parse(survey);
+                    const bilanContent = document.getElementById('bilanContent');
+                    if (bilanContent) {
+                        bilanContent.innerHTML = `
+                            <p style="color: var(--text-light); font-size: 14px;">
+                                Bilan de la semaine complété le ${new Date(data.completedAt).toLocaleDateString('fr-FR')}
+                            </p>
+                            <p style="margin-top: 8px;">
+                                📊 <a href="#" onclick="app.showView('history'); return false;" style="color: var(--accent);">Voir les détails dans Historique</a>
+                            </p>
                         `;
-                    });
-                    document.getElementById('bilanContent').innerHTML += manualBilansHtml;
+                    }
+                    weeklyBilan.style.display = 'block';
+                } catch (e) {
+                    console.error('[Insights] Parse error:', e);
+                    weeklyBilan.style.display = 'none';
                 }
+            } else {
+                weeklyBilan.style.display = 'none';
             }
-        } else if (bilanCard) {
-            bilanCard.style.display = 'none';
         }
         
         const last30 = entries.slice(0, 30);
