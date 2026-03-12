@@ -677,6 +677,30 @@ const app = {
         document.getElementById('notToday').disabled = true;
         document.getElementById('yesToday').disabled = true;
         
+        // Bouton Retour vers completion
+        let backBtn = document.getElementById('backToCompletion');
+        
+        if (!backBtn) {
+            backBtn = document.createElement('button');
+            backBtn.id = 'backToCompletion';
+            backBtn.className = 'secondary';
+            backBtn.textContent = '← Retour';
+            backBtn.style.cssText = 'margin-bottom: 16px; display: none;';
+            
+            backBtn.addEventListener('click', () => {
+                document.querySelectorAll('.step').forEach(el => el.classList.add('hidden'));
+                backBtn.style.display = 'none';
+                document.getElementById('completion')?.classList.remove('hidden');
+            });
+            
+            const journeyView = document.getElementById('journeyView');
+            if (journeyView) {
+                journeyView.insertBefore(backBtn, journeyView.firstChild);
+            }
+        }
+        
+        backBtn.style.display = 'block';
+        
         // Scroll to top
         window.scrollTo({ top: 0, behavior: 'smooth' });
     },
