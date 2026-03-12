@@ -329,27 +329,36 @@ const app = {
             });
         });
         
-        // Navigation buttons (clone to remove old listeners)
+        // Navigation buttons - cloner pour supprimer TOUS les anciens listeners
         const nextBtn = document.getElementById('surveyNext');
         const prevBtn = document.getElementById('surveyPrevious');
         const skipBtn = document.getElementById('surveySkip');
-        
+
         if (nextBtn) {
             const newNext = nextBtn.cloneNode(true);
             nextBtn.parentNode.replaceChild(newNext, nextBtn);
-            document.getElementById('surveyNext').addEventListener('click', () => this.surveyNext());
+            document.getElementById('surveyNext').addEventListener('click', (e) => {
+                e.stopImmediatePropagation();
+                this.surveyNext();
+            });
         }
-        
+
         if (prevBtn) {
             const newPrev = prevBtn.cloneNode(true);
             prevBtn.parentNode.replaceChild(newPrev, prevBtn);
-            document.getElementById('surveyPrevious').addEventListener('click', () => this.surveyPrevious());
+            document.getElementById('surveyPrevious').addEventListener('click', (e) => {
+                e.stopImmediatePropagation();
+                this.surveyPrevious();
+            });
         }
-        
+
         if (skipBtn) {
             const newSkip = skipBtn.cloneNode(true);
             skipBtn.parentNode.replaceChild(newSkip, skipBtn);
-            document.getElementById('surveySkip').addEventListener('click', () => this.surveySkip());
+            document.getElementById('surveySkip').addEventListener('click', (e) => {
+                e.stopImmediatePropagation();
+                this.surveySkip();
+            });
         }
     },
 
@@ -404,6 +413,10 @@ const app = {
     },
 
     completeSurvey(isManual = false) {
+        // Guard anti-double-exécution
+        if (this._completingSurvey) return;
+        this._completingSurvey = true;
+
         const today = this.getToday();
         const weekNumber = this.getWeekNumber(new Date());
         const weekStart = this.getWeekStart(new Date());
@@ -427,6 +440,7 @@ const app = {
         this.surveyStep = 1;
         this.surveyAnswers = {};
         this.isManualSurvey = false;
+        this._completingSurvey = false;
         
         // Go to insights
         this.showView('insights');
